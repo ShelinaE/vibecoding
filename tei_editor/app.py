@@ -1,17 +1,17 @@
-"""The first, minimal version of the TEI editor."""
+"""The TEI page editor."""
 
 from threading import Timer
 import webbrowser
 
-from flask import Flask
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
 
 @app.get("/")
 def home():
-    """Show a simple message so the user knows the app has started."""
-    return "<main><h1>TEI editor is running</h1></main>"
+    """Show one column of editable transcription lines."""
+    return render_template("index.html", line_numbers=range(1, 31))
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ The first time you start the app, it creates its private Python environment and 
 
 1. Open the `tei_editor` folder in File Explorer.
 2. Double-click `start.bat`.
-3. Keep the black window open while you use the app. Your browser should open and show **TEI editor is running**.
+3. Keep the black window open while you use the app. Your browser should open and show **TEI Page Editor**, with 30 editable lines in column **a**.
 4. To stop the app, close the black window.
 
 ## Start the app on macOS
@@ -24,11 +24,14 @@ The first time you start the app, it creates its private Python environment and 
 1. Open the `tei_editor` folder in Finder.
 2. Double-click `start.command`.
 3. If macOS asks you to confirm, Control-click `start.command`, choose **Open**, and confirm **Open**.
-4. Keep the Terminal window open while you use the app. Your browser should open and show **TEI editor is running**.
+4. Keep the Terminal window open while you use the app. Your browser should open and show **TEI Page Editor**, with 30 editable lines in column **a**.
 5. To stop the app, close the Terminal window.
+
+## About this version
+
+This version lets you type into the 30 lines, but it does not save your text yet. Anything you type will be lost when you leave or refresh the page.
 
 ## If something goes wrong
 
 Read the message in the window opened by the start script. If Python is missing or too old, install Python 3.11 or newer and try again. If Flask cannot be installed on the first run, connect to the internet and double-click the start script again.
 
-This first phase only checks that the app starts. It does not yet include transcription lines or save any transcription.

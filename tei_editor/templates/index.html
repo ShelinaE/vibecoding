@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TEI Page Editor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <h1>TEI Page Editor</h1>
+        <p>Type one manuscript line in each box.</p>
+        <p class="notice">This version does not save your text yet. Anything you type will be lost when you leave or refresh this page.</p>
+      </header>
+
+      <section class="column" aria-labelledby="column-heading">
+        <h2 id="column-heading">Column a</h2>
+        <ol class="lines">
+          {% for number in line_numbers %}
+          <li class="line">
+            <label for="line-{{ number }}" aria-label="Line {{ number }} in column a">{{ number }}</label>
+            <input id="line-{{ number }}" name="line-{{ number }}" type="text" autocomplete="off">
+          </li>
+          {% endfor %}
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>
