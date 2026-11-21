@@ -1,102 +1,303 @@
-# TEI Page Editor: Build Plan
+# TEI Page Editor: Implementation Plan
 
-## Goal
+## 1. Goal
 
-Build a small web app that runs on my own laptop and lets me transcribe one manuscript page into TEI-XML. I type in the browser, and the app saves my work to a TEI file automatically.
+Build a small, offline-first Windows web app for transcribing one manuscript page at a time into TEI P5 XML.
 
-## Who it's for
+The app must:
+- run locally on `127.0.0.1`;
+- require no terminal knowledge;
+- save one manuscript as one UTF-8 TEI-XML file;
+- preserve text exactly, including combining characters and symbols;
+- keep the TEI file useful when the app is unavailable;
+- keep a small, local GitHub workflow through GitHub Desktop.
 
-I am a medievalist with no coding experience. Setting up and running the app must take as few steps as possible, and everything you do must be explained to me in plain English.
+## 2. Fixed decisions
 
-## Technical decisions (do not deviate)
+### 2.1 Runtime
+- Python 3.11 or newer.
+- Flask 3.x and lxml 5.x or 6.x: the only third-party packages.
+- Plain HTML, CSS and vanilla JavaScript.
+- No Node.js, framework, build step, database, CDN, analytics or runtime internet access.
+- Windows is the supported platform.
+- All packages are installed only in `tei_editor/.venv`.
 
-- Python 3.11 or newer, with **Flask** as the only third-party package. Use the standard library (`xml.etree.ElementTree`) for XML. Ask me before adding any other package.
-- Plain HTML, CSS, and vanilla JavaScript. No JavaScript frameworks, no build tools, no database, no accounts, no API keys, and no internet connection needed at runtime.
-- Put everything inside a folder called `tei_editor/`. Do not create or modify anything outside it.
-- Use a virtual environment at `tei_editor/.venv`, with dependencies pinned in `requirements.txt`.
-- The server must listen on `127.0.0.1` only, so that nobody else on the network can reach it.
-- Save the data to `tei_editor/data/transcription.xml`, encoded as UTF-8.
+### 2.2 Folder
 
-## Behaviour
+The implementation may create or modify files only inside `tei_editor/`.
 
-1. On first launch, the editor shows one page with one column of 30 empty, numbered lines.
-2. Each line is a single-line text box. Columns sit side by side and are labelled a, b, c, and so on.
-3. I can add and remove lines (within a column) and add and remove columns. Line numbers update automatically and restart at 1 in each column. Ask for confirmation before removing anything that contains text. Always keep at least one column and one line.
-4. **Autosave:** save about one second after I stop typing, and immediately after any structural change. Show "Saved at HH:MM:SS" on screen. If saving fails, show a clear error message. Never fail silently.
-5. Before each save, copy the previous file to `transcription.xml.bak`.
-6. On startup, load `transcription.xml` if it exists, so my work carries over between sessions.
-7. Keep my text exactly as typed, apart from trimming leading and trailing spaces on each line. Characters such as `<`, `>`, `&`, accented letters, and combining or medieval characters must survive saving and reloading unchanged. Never normalise Unicode.
+```text
+tei_editor/
+├── START-EDITOR.bat
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── app/
+│   ├── __init__.py
+│   ├── app.py
+│   ├── routes.py
+│   ├── tei.py
+│   ├── static/
+│   │   ├── app.css
+│   │   └── app.js
+│   ├── templates/
+│   └── schema/
+├── tests/
+├── data/
+├── images/
+├── backups/
+├── characters.txt
+└── .venv/
+```
 
-## TEI output
+`data/` and `backups/` are repository data. `.venv/`, `__pycache__/`, test output and temporary XML files are excluded by Git.
 
-Use this structure. Each `<lb/>` goes on its own line, with the line's text immediately after it.
+Images are not stored in GitHub: `images/` is excluded from the repository. The TEI file stores a relative URL such as `images/MS123_f12r.jpg`.
+
+### 2.3 Manuscripts
+- There is one TEI-XML file per manuscript.
+- Files live in `data/`.
+- The filename is derived once from a shelfmark and folio. It is an editable form, for example `BAV_Vat_lat_1234_f12r.xml`.
+- Shelfmark and folio remain separate fields in the manuscript header.
+- `transcription.xml` is not used: the old single-file prototype must not be retained as a second format.
+- No database or hidden transcription file is used.
+
+## 3. TEI format
+
+Use TEI P5:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <TEI xmlns="http://www.tei-c.org/ns/1.0">
   <teiHeader>
     <fileDesc>
-      <titleStmt><title>Untitled transcription</title></titleStmt>
-      <publicationStmt><p>Unpublished</p></publicationStmt>
-      <sourceDesc><p>Born-digital transcription</p></sourceDesc>
+      <titleStmt>
+        <title>Transcription of Example Library, MS 123, fol. 12r</title>
+        <respStmt>
+          <resp>Transcribed by</resp>
+          <persName>Example Transcriber</persName>
+        </respStmt>
+      </titleStmt>
+      <publicationStmt>
+        <p>Unpublished working transcription for personal research.</p>
+      </publicationStmt>
+      <sourceDesc>
+        <msDesc>
+          <msIdentifier>
+            <settlement>Example City</settlement>
+            <repository>Example Library</repository>
+            <idno>MS 123</idno>
+          </msIdentifier>
+        </msDesc>
+      </sourceDesc>
     </fileDesc>
   </teiHeader>
+  <facsimile>
+    <surface xml:id="surface-12r">
+      <graphic url="images/MS123_f12r.jpg"/>
+    </surface>
+  </facsimile>
   <text>
     <body>
-      <div>
-        <p>
-          <pb n="1"/>
-          <cb n="a"/>
-          <lb n="1"/>First line of column a
-          <lb n="2"/>Second line of column a
-          <cb n="b"/>
-          <lb n="1"/>First line of column b
-        </p>
-      </div>
+      <ab>
+        <pb n="12r" facs="#surface-12r"/>
+        <cb n="a"/>
+        <lb n="1"/>Text of first line
+        <lb n="2"/>
+        <cb n="b"/>
+        <lb n="1"/>
+      </ab>
     </body>
   </text>
 </TEI>
 ```
 
-Empty lines still get an `<lb n="…"/>` element. If you are unsure whether any markup is valid TEI, tell me rather than guessing.
+Fixed format rules:
+- The body text is one `<ab>`.
+- `<pb n="…"/>` identifies the page/folio.
+- `<cb n="…"/>` identifies a column.
+- `<lb n="…"/>` precedes every line and lives directly in `<ab>`.
+- Empty lines have a bare `<lb/>` and no following text.
+- Words continuing on the following line use `break="no"` on the following `<lb/>`.
+- XML text is indented for a person to read, but one manuscript line must occupy one XML text node.
+- lxml is used for all parsing, editing and serialization.
+- Real Unicode characters are saved. XML escapes are only an output concern.
+- Existing files may contain only the elements and attributes this app supports.
 
-## Build phases
+## 4. Data model
 
-Work through the phases in order. **Stop at the end of each phase** and wait for me.
+The browser may use a plain in-memory view model, but it must never be the only copy of scholarly data.
 
-**Phase 1: Setup and "hello world"**
-Create `tei_editor/` with a virtual environment, `requirements.txt` (Flask, version pinned), a `.gitignore` (excluding `.venv/`, `__pycache__/`, and `*.bak`), and a minimal `app.py` that shows a page saying "TEI editor is running". Add a start script that I run by double-clicking: `start.bat` (Windows) and `start.command` (macOS, made executable). It must work from any location by first changing to its own folder. It must check that Python 3.11 or newer is installed, and say so in plain English if not. On first run it creates the virtual environment and installs requirements. It starts the app on port 5001 (not 5000, which macOS uses for AirPlay), opens it in my browser, and if anything fails it keeps the window open so I can read the message. Write a short `README.md` explaining, step by step, how to start the app on each system.
-*My check: I double-click the start script and see the page in my browser.*
+```text
+Manuscript
+- path
+- city
+- library
+- shelfmark
+- folio
+- title
+- transcriber
+- transcription_date
+- image
+- columns
+  - label
+  - lines
+    - n
+    - text
+```
 
-**Phase 2: The page layout**
-Show one column of 30 numbered, editable lines. No saving yet.
-*My check: I can type in every line, and the layout is readable.*
+The server owns the TEI file and performs all parsing and serialization. The browser never constructs XML.
 
-**Phase 3: Saving to TEI**
-Add autosave, TEI generation, the backup file, the on-screen save status, and loading on startup. Also write `check_tei.py` and a double-clickable `check.bat` / `check.command` that runs it, shows the result, and waits for a key press. It reports whether `data/transcription.xml` is well-formed XML. It then checks the structure and reports each problem in plain English: there is exactly one `<pb/>`; there is at least one `<cb/>`; every `<cb/>` and `<lb/>` sits inside the `<p>`; columns are labelled a, b, c in order; and each column's lines are numbered 1, 2, 3 with no gaps or repeats. Finally, it prints the number of `<pb/>`, `<cb/>`, and `<lb/>` elements, and the number of lines in each column.
-*My check: I type text, open the XML file in VS Code, double-click the check script, and restart the app to confirm my text is still there.*
+## 5. Behaviour and acceptance checks
 
-**Phase 4: Editing the structure**
-Add and remove lines and columns, with confirmation for anything non-empty, and keep the TEI file in sync.
-*My check: the line and column counts reported by `check_tei.py` match what I see on screen after every change.*
+### Starting
+1. Double-click `START-EDITOR.bat`.
+2. It checks for Python 3.11+, creates `.venv` if absent, installs requirements if absent, starts the Flask app, and opens the default browser.
+3. Errors remain visible in the window instead of disappearing.
+4. The app listens only on `127.0.0.1`.
+5. Closing the window stops the app.
 
-**Phase 5: Robustness**
-Test the edge cases: empty lines, `<` and `&`, accented and combining characters, very long lines, rapid typing, removing the last column or line, and a restart in the middle of editing. Fix anything that breaks. Update `README.md` for a non-programmer.
-*My check: nothing is lost, and every error is visible.*
+### Manuscript list
+1. The home page lists every supported TEI file in `data/`.
+2. **New manuscript** collects city, library, shelfmark, folio, title, transcriber and start date.
+3. A new manuscript begins with one column labelled `a` and 30 empty lines.
+4. A title is suggested from the fields but remains editable.
+5. Creating a duplicate refuses to overwrite and explains which file already exists.
+6. An unsupported or malformed file is listed with a warning and cannot be opened.
+7. Unsupported markup is identified in plain English and its file remains unchanged.
 
-## Working rules for the agent
+### Editing
+1. Lines are numbered text boxes. Columns sit side by side.
+2. Enter moves to the following line; Up and Down move between lines.
+3. Add/remove line and column operations renumber in app data and XML.
+4. Confirmation is required for removing text.
+5. The last column cannot be removed.
+6. Text is not trimmed or normalized; spaces and Unicode are preserved.
+7. Character buttons insert text at the cursor.
+8. Characters come from `characters.txt`, with one character followed optionally by a description.
 
-- Complete one phase at a time and stop at the end of each.
-- Run all terminal commands yourself: do not assume that I know how to use the terminal.
-- At each stop, tell me in plain English: which files you changed and why, how I can run and test the result, what you tested yourself, and any choice you made on my behalf. Remind me to review the changes and commit them in GitHub Desktop before we continue.
-- Do not add features, files, or packages that are not in this plan. Ask first.
-- If anything in this plan is ambiguous or contradictory, ask me instead of guessing.
-- Write simple, readable code with comments aimed at a non-programmer, in small functions.
-- Never catch an error and hide it. Report it visibly.
-- Never delete or overwrite my transcription without keeping a backup.
-- Do not commit or push to Git. I will do that myself in GitHub Desktop.
-- Before running any terminal command, explain what it does.
+### Markup
+Markup is shown as visible tags, not as rich-text formatting.
 
-## Out of scope (for now)
+The buttons support:
+- abbreviation/expansion;
+- addition, with place `above`, `below` or `margin`;
+- deletion, with `rend="strikethrough"`;
+- unclear;
+- gap, with reason and approximate character quantity;
+- word continuing on the next line.
 
-Multiple pages and page navigation, displaying a facsimile image, editing the TEI header, schema validation, other export formats, user accounts, and putting the app online.
+Markup may not overlap or remain unclosed. The server rejects invalid markup and does not save it.
+
+### Details and images
+1. Details changes are autosaved to the TEI header.
+2. The page image drop-down lists files in `images/`.
+3. Selection records a relative URL in `<facsimile>`.
+4. Missing images show a clear message while the transcription remains usable.
+5. Zoom, fit and scroll controls do not disturb transcription editing.
+
+### Saving and recovery
+1. Typing is saved about one second after it stops.
+2. Structural changes save immediately.
+3. **Saving…** becomes **Saved at HH:MM:SS** on success.
+4. Save failure shows **Not saved — reason**, keeps the in-memory text, and retries.
+5. XML is generated in memory, parsed again and checked for well-formedness before replacement.
+6. The server writes a temporary file beside the destination and atomically replaces the destination.
+7. Exactly two backups per manuscript are kept: a backup on open and another at most every 10 minutes during a session.
+8. A save is never silently omitted, and backups are the only automatically deleted files.
+
+## 6. Safeguards and validation
+
+### Supported-file opening
+Opening a file must:
+1. read it as UTF-8;
+2. parse it with lxml;
+3. verify the TEI namespace;
+4. verify the exact supported structure;
+5. reject unknown elements or attributes instead of silently dropping them;
+6. preserve the file if a save would be unsafe.
+
+### TEI check
+**Check TEI** reports one of:
+- `Well-formed and valid TEI`;
+- `Well-formed but validity is not checked`;
+- a plain list of well-formedness or validity problems.
+
+The app has a built-in well-formedness check. Optional Relax NG validation uses `tei_all.rng` placed by the user in `app/schema/`; the app never downloads or changes it.
+
+VS Code with the Red Hat XML extension is an independent visual check.
+
+### Tests
+Use `unittest` and temporary directories under `tests/`.
+
+Automated tests must cover:
+- new manuscript structure;
+- line and column numbering;
+- exact Unicode round trips;
+- special characters `<`, `&` and combining marks;
+- safe save and restore;
+- malformed XML;
+- unsupported markup;
+- duplicate manuscript refusal;
+- backup count;
+- missing image;
+- overlapping markup rejection;
+- each supported markup element;
+- Details header changes.
+
+## 7. Build phases
+
+Stop after every phase and wait for review.
+
+### Phase 1 — App starts
+- Create `tei_editor/`, launcher, virtual environment setup, requirements and offline Flask page.
+- Check: launcher starts and stops cleanly; second start does not reinstall unnecessarily.
+
+### Phase 2 — Manuscript management
+- Create list, Details form and initial 30-line TEI file.
+- Check: create and reload a test manuscript; XML is well formed.
+
+### Phase 3 — Editing and autosave
+- Add line editing, keyboard movement, safe save, status and exactly two backups.
+- Check: text, Unicode and spaces survive reload; save failure is visible.
+
+### Phase 4 — Structure
+- Add and remove lines and columns.
+- Check: numbering and XML stay in sync; destructive operations confirm.
+
+### Phase 5 — Header, characters and markup
+- Add Details form, character buttons and visible-tag markup.
+- Check: each markup kind round-trips through lxml; invalid markup is refused.
+
+### Phase 6 — Images and final validation
+- Add image selection, zoom and built-in TEI check.
+- Check: relative image URLs, missing-image handling and independent XML validation.
+
+### Phase 7 — Documentation and user testing
+- Complete README, recovery instructions and Windows-only setup.
+- Check: every start, backup, and restore action is understandable without terminal use.
+
+## 8. Working rules
+
+1. Complete one phase at a time. After implementation and tests, stop and show the exact manual checks.
+2. Use plain-English explanations for every setup and result.
+3. Do not add packages or features beyond this plan.
+4. Never modify files outside `tei_editor/`.
+5. Never modify a user's `data/` or `images/` file during tests; use temporary test directories.
+6. Never run Git commands or commit or push changes.
+7. Never silently catch save, parsing or validation errors.
+8. Never rewrite the XML with string concatenation or regular expressions.
+9. Keep the README current with every change.
+10. Ask before changing a fixed TEI element, attribute or behaviour.
+
+## 9. Out of scope
+
+- Multiple pages or page navigation.
+- Multiple simultaneous manuscripts.
+- OCR/HTR and external imports.
+- PDF, Word or HTML export.
+- Accounts or network access.
+- Rich-text/tag-hidden editing.
+- Image region linking.
+- Notes, apparatus, variants or additional TEI markup.
+- Mac and Linux support.
